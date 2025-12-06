@@ -3,9 +3,9 @@ const router = express.Router()
 const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
-const { spawn } = require('child_process')
 const auth = require('../middleware/auth')
 const History = require('../models/History')
+const { transform } = require('../transforms/advancedTransforms')
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -34,78 +34,71 @@ const upload = multer({
   }
 })
 
-// Python transformation scripts mapping
-const transformScripts = {
-  'Pencil Sketch': 'pencil',
-  'Oil Painting': 'oil',
-  '2D Cartoon': 'cartoon2d',
-  '3D Cartoon': 'cartoon3d',
-  'Comic Style': 'comic',
-  'Anime Style': 'anime'
-}
-
-// Execute Python transformation
-const executePythonTransform = (scriptName, inputPath, outputPath) => {
-  return new Promise((resolve, reject) => {
-    const absoluteInputPath = path.resolve(inputPath)
-    const absoluteOutputPath = path.resolve(outputPath)
-    
-    const python = spawn('python', [
-      '-m', `transforms.${scriptName}`,
-      absoluteInputPath,
-      absoluteOutputPath
-    ], {
-      cwd: __dirname + '/..',
-      timeout: 60000 // 60 second timeout
-    })
-
-    let errorOutput = ''
-    let stdOutput = ''
-
-    python.stdout.on('data', (data) => {
-      stdOutput += data.toString()
-    })
-
-    python.stderr.on('data', (data) => {
-      errorOutput += data.toString()
-    })
-
-    python.on('close', (code) => {
-      if (code === 0) {
-        resolve()
-      } else {
-        reject(new Error(`Python script failed (code ${code}): ${errorOutput || stdOutput}`))
-      }
-    })
-
-    python.on('error', (err) => {
-      reject(new Error(`Failed to start Python process: ${err.message}`))
-    })
-  })
-}
+// Supported transformation styles
+const transformStyles = [
+  'Pencil Sketch',
+  'Oil Painting',
+  '2D Cartoon',
+  '3D Cartoon',
+  'Comic Style',
+  'Anime Style'
+]
 
 // @route   POST /api/image/transform
 // @desc    Transform uploaded image using Python scripts
 // @access  Private
+// Fix: Enhanced error handling with detailed logging and proper status codes
 router.post('/transform', auth, upload.single('image'), async (req, res) => {
+  let uploadedFilePath = null
+  
   try {
+    console.log('📸 Transform request received')
+    console.log('   User:', req.user?._id)
+    console.log('   File:', req.file ? req.file.filename : 'NONE')
+    console.log('   Style:', req.body?.style)
+    
     if (!req.file) {
-      return res.status(400).json({ message: 'No image file uploaded' })
+      console.error('❌ No file uploaded')
+      return res.status(400).json({ 
+        message: 'No image file uploaded',
+        hint: 'Ensure the form field name is "image"'
+      })
     }
 
+    uploadedFilePath = req.file.path
     const { style } = req.body
 
-    if (!style || !transformScripts[style]) {
-      return res.status(400).json({ message: 'Invalid transformation style' })
+    if (!style) {
+      console.error('❌ No style provided')
+      return res.status(400).json({ 
+        message: 'Transformation style is required',
+        hint: 'Include "style" in request body'
+      })
+    }
+
+    if (!transformStyles.includes(style)) {
+      console.error(`❌ Invalid style: ${style}`)
+      return res.status(400).json({ 
+        message: 'Invalid transformation style',
+        hint: `Valid styles: ${transformStyles.join(', ')}`
+      })
     }
 
     const inputPath = req.file.path
     const outputFilename = `transformed-${Date.now()}-${req.file.filename}`
     const outputPath = path.join('outputs', outputFilename)
 
-    // Execute Python transformation
-    const scriptName = transformScripts[style]
-    await executePythonTransform(scriptName, inputPath, outputPath)
+    // Execute Node.js transformation using Sharp library
+    try {
+      await transform(style, inputPath, outputPath)
+    } catch (transformError) {
+      console.error('❌ Transformation failed:', transformError.message)
+      return res.status(503).json({ 
+        message: 'Image transformation failed',
+        error: transformError.message,
+        hint: 'The image processing library encountered an error. Try a different image or style.'
+      })
+    }
 
     // Save to history
     const history = new History({
@@ -116,6 +109,7 @@ router.post('/transform', auth, upload.single('image'), async (req, res) => {
     })
     await history.save()
 
+    console.log('✅ Transform completed and saved to history')
     res.json({
       message: 'Image transformed successfully',
       originalImage: `/uploads/${req.file.filename}`,
@@ -124,8 +118,23 @@ router.post('/transform', auth, upload.single('image'), async (req, res) => {
       historyId: history._id
     })
   } catch (error) {
-    console.error('Transform error:', error)
-    res.status(500).json({ message: 'Error transforming image', error: error.message })
+    console.error('❌ Transform error:', error.stack)
+    
+    // Clean up uploaded file on error
+    if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
+      try {
+        fs.unlinkSync(uploadedFilePath)
+        console.log('🗑️  Cleaned up uploaded file after error')
+      } catch (cleanupErr) {
+        console.error('⚠️  Could not clean up file:', cleanupErr.message)
+      }
+    }
+    
+    res.status(500).json({ 
+      message: 'Error transforming image', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
   }
 })
 

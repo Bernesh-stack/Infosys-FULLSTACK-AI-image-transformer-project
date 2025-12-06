@@ -6,9 +6,10 @@ import Dashboard from './pages/Dashboard'
 import HistoryPage from './pages/HistoryPage'
 import ProtectedRoute from './components/ProtectedRoute'
 
+// Fix: Add React Router v7 future flags to suppress warnings without changing behavior
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />

@@ -1,0 +1,5 @@
+
+# local env files
+Server/.env
+Client/.env
+*.env

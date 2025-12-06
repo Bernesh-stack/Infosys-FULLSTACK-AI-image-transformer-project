@@ -1,0 +1,300 @@
+diff --git a/Client/src/App.jsx b/Client/src/App.jsx
+index original..fixed
+--- a/Client/src/App.jsx
++++ b/Client/src/App.jsx
+@@ -6,9 +6,10 @@ import Dashboard from './pages/Dashboard'
+ import HistoryPage from './pages/HistoryPage'
+ import ProtectedRoute from './components/ProtectedRoute'
+ 
++// Fix: Add React Router v7 future flags to suppress warnings without changing behavior
+ function App() {
+   return (
+-    <Router>
++    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+       <Routes>
+         <Route path="/" element={<LandingPage />} />
+         <Route path="/login" element={<LoginPage />} />
+
+diff --git a/Client/index.html b/Client/index.html
+index original..fixed
+--- a/Client/index.html
++++ b/Client/index.html
+@@ -2,6 +2,7 @@
+ <html lang="en">
+   <head>
+     <meta charset="UTF-8" />
++    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>AI Image Transformer</title>
+   </head>
+
+diff --git a/Client/public/favicon.svg b/Client/public/favicon.svg
+new file mode 100644
+index 0000000..new
+--- /dev/null
++++ b/Client/public/favicon.svg
+@@ -0,0 +1,9 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
++  <defs>
++    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
++      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
++      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
++    </linearGradient>
++  </defs>
++  <rect width="100" height="100" rx="20" fill="url(#grad)"/>
++  <text x="50" y="70" font-size="60" text-anchor="middle" fill="white" font-family="Arial, sans-serif">🎨</text>
++</svg>
+
+diff --git a/Server/server.js b/Server/server.js
+index original..fixed
+--- a/Server/server.js
++++ b/Server/server.js
+@@ -5,7 +5,16 @@ const dotenv = require('dotenv')
+ const path = require('path')
+ const fs = require('fs')
+ 
++// Fix: Load dotenv explicitly and validate critical env vars
+ dotenv.config()
++
++if (!process.env.MONGO_URI) {
++  console.error('❌ FATAL: MONGO_URI environment variable is not set in .env file')
++  process.exit(1)
++}
++
++if (!process.env.JWT_SECRET) {
++  console.error('⚠️  WARNING: JWT_SECRET not set, using default (insecure for production)')
++}
+ 
+ const app = express()
+ 
+@@ -27,13 +36,20 @@ app.use('/outputs', express.static(path.join(__dirname, 'outputs'), {
+   }
+ }))
+ 
+-// Create directories if they don't exist
++// Fix: Create directories with error handling and logging
+ const uploadsDir = path.join(__dirname, 'uploads')
+ const outputsDir = path.join(__dirname, 'outputs')
+ 
+-if (!fs.existsSync(uploadsDir)) {
+-  fs.mkdirSync(uploadsDir, { recursive: true })
+-}
++try {
++  if (!fs.existsSync(uploadsDir)) {
++    fs.mkdirSync(uploadsDir, { recursive: true })
++    console.log('✅ Created uploads directory')
++  }
++  if (!fs.existsSync(outputsDir)) {
++    fs.mkdirSync(outputsDir, { recursive: true })
++    console.log('✅ Created outputs directory')
++  }
++} catch (err) {
++  console.error('❌ FATAL: Could not create required directories:', err.message)
++  process.exit(1)
++}
+ 
+ // Routes
+@@ -46,14 +62,25 @@ app.get('/api/health', (req, res) => {
+   res.json({ status: 'OK', message: 'Server is running' })
+ })
+ 
++// Fix: Add global error handler for unhandled errors
++app.use((err, req, res, next) => {
++  console.error('❌ Unhandled error:', err.stack)
++  res.status(500).json({ 
++    message: 'Internal server error', 
++    error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
++  })
++})
++
+-// MongoDB Connection
++// MongoDB Connection with better error handling
+ mongoose
+   .connect(process.env.MONGO_URI)
+   .then(() => console.log('✅ MongoDB Connected'))
+-  .catch((err) => console.error('❌ MongoDB Connection Error:', err))
++  .catch((err) => {
++    console.error('❌ MongoDB Connection Error:', err.message)
++    console.error('   Check your MONGO_URI in .env and ensure MongoDB is running')
++    process.exit(1)
++  })
+ 
+ // Start Server
+ const PORT = process.env.PORT || 5000
+ app.listen(PORT, () => {
+   console.log(`🚀 Server running on port ${PORT}`)
++  console.log(`📁 Uploads directory: ${uploadsDir}`)
++  console.log(`📁 Outputs directory: ${outputsDir}`)
+ })
+
+diff --git a/Server/routes/image.js b/Server/routes/image.js
+index original..fixed
+--- a/Server/routes/image.js
++++ b/Server/routes/image.js
+@@ -36,23 +36,38 @@ const transformScripts = {
+   'Anime Style': 'anime'
+ }
+ 
+-// Execute Python transformation
++// Fix: Enhanced Python transformation with better error handling and logging
+ const executePythonTransform = (scriptName, inputPath, outputPath) => {
+   return new Promise((resolve, reject) => {
+     const absoluteInputPath = path.resolve(inputPath)
+     const absoluteOutputPath = path.resolve(outputPath)
+     
++    console.log(`🐍 Starting Python transform: ${scriptName}`)
++    console.log(`   Input: ${absoluteInputPath}`)
++    console.log(`   Output: ${absoluteOutputPath}`)
++    
++    // Verify input file exists
++    if (!fs.existsSync(absoluteInputPath)) {
++      return reject(new Error(`Input file not found: ${absoluteInputPath}`))
++    }
++    
+     const python = spawn('python', [
+       '-m', `transforms.${scriptName}`,
+       absoluteInputPath,
+       absoluteOutputPath
+     ], {
+-      cwd: __dirname + '/..',
++      cwd: path.join(__dirname, '..'),
+       timeout: 60000 // 60 second timeout
+     })
+ 
+     let errorOutput = ''
+     let stdOutput = ''
+ 
+     python.stdout.on('data', (data) => {
+-      stdOutput += data.toString()
++      const output = data.toString()
++      stdOutput += output
++      console.log(`   [Python stdout]: ${output.trim()}`)
+     })
+ 
+     python.stderr.on('data', (data) => {
+-      errorOutput += data.toString()
++      const output = data.toString()
++      errorOutput += output
++      console.error(`   [Python stderr]: ${output.trim()}`)
+     })
+ 
+     python.on('close', (code) => {
+       if (code === 0) {
+-        resolve()
++        // Verify output file was created
++        if (fs.existsSync(absoluteOutputPath)) {
++          console.log(`✅ Transform completed successfully`)
++          resolve()
++        } else {
++          reject(new Error(`Transform completed but output file not found: ${absoluteOutputPath}`))
++        }
+       } else {
+-        reject(new Error(`Python script failed (code ${code}): ${errorOutput || stdOutput}`))
++        const errorMsg = errorOutput || stdOutput || 'Unknown error'
++        console.error(`❌ Python script failed with code ${code}`)
++        reject(new Error(`Python script failed (exit code ${code}): ${errorMsg}`))
+       }
+     })
+ 
+     python.on('error', (err) => {
+-      reject(new Error(`Failed to start Python process: ${err.message}`))
++      console.error(`❌ Failed to spawn Python process:`, err)
++      reject(new Error(`Failed to start Python process: ${err.message}. Ensure Python is installed and in PATH.`))
+     })
+   })
+ }
+ 
+ // @route   POST /api/image/transform
+ // @desc    Transform uploaded image using Python scripts
+ // @access  Private
++// Fix: Enhanced error handling with detailed logging and proper status codes
+ router.post('/transform', auth, upload.single('image'), async (req, res) => {
++  let uploadedFilePath = null
++  
+   try {
++    console.log('📸 Transform request received')
++    console.log('   User:', req.user?._id)
++    console.log('   File:', req.file ? req.file.filename : 'NONE')
++    console.log('   Style:', req.body?.style)
++    
+     if (!req.file) {
+-      return res.status(400).json({ message: 'No image file uploaded' })
++      console.error('❌ No file uploaded')
++      return res.status(400).json({ 
++        message: 'No image file uploaded',
++        hint: 'Ensure the form field name is "image"'
++      })
+     }
+ 
++    uploadedFilePath = req.file.path
+     const { style } = req.body
+ 
+-    if (!style || !transformScripts[style]) {
+-      return res.status(400).json({ message: 'Invalid transformation style' })
++    if (!style) {
++      console.error('❌ No style provided')
++      return res.status(400).json({ 
++        message: 'Transformation style is required',
++        hint: 'Include "style" in request body'
++      })
++    }
++
++    if (!transformScripts[style]) {
++      console.error(`❌ Invalid style: ${style}`)
++      return res.status(400).json({ 
++        message: 'Invalid transformation style',
++        hint: `Valid styles: ${Object.keys(transformScripts).join(', ')}`
++      })
+     }
+ 
+     const inputPath = req.file.path
+@@ -95,7 +140,14 @@ router.post('/transform', auth, upload.single('image'), async (req, res) => {
+ 
+     // Execute Python transformation
+     const scriptName = transformScripts[style]
+-    await executePythonTransform(scriptName, inputPath, outputPath)
++    try {
++      await executePythonTransform(scriptName, inputPath, outputPath)
++    } catch (pythonError) {
++      console.error('❌ Python transformation failed:', pythonError.message)
++      return res.status(503).json({ 
++        message: 'Image transformation failed',
++        error: pythonError.message,
++        hint: 'Check that Python and required packages (opencv-python, numpy, Pillow) are installed'
++      })
++    }
+ 
+     // Save to history
+@@ -107,6 +159,7 @@ router.post('/transform', auth, upload.single('image'), async (req, res) => {
+     })
+     await history.save()
+ 
++    console.log('✅ Transform completed and saved to history')
+     res.json({
+       message: 'Image transformed successfully',
+       originalImage: `/uploads/${req.file.filename}`,
+@@ -115,7 +168,20 @@ router.post('/transform', auth, upload.single('image'), async (req, res) => {
+       historyId: history._id
+     })
+   } catch (error) {
+-    console.error('Transform error:', error)
+-    res.status(500).json({ message: 'Error transforming image', error: error.message })
++    console.error('❌ Transform error:', error.stack)
++    
++    // Clean up uploaded file on error
++    if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
++      try {
++        fs.unlinkSync(uploadedFilePath)
++        console.log('🗑️  Cleaned up uploaded file after error')
++      } catch (cleanupErr) {
++        console.error('⚠️  Could not clean up file:', cleanupErr.message)
++      }
++    }
++    
++    res.status(500).json({ 
++      message: 'Error transforming image', 
++      error: error.message,
++      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
++    })
+   }
+ })
