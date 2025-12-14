@@ -1,3 +1,18 @@
+## Final Outcome
+<img width="952" height="533" alt="Landing Page" src="https://github.com/user-attachments/assets/842dcd54-60ef-48c5-8411-5a89fa6e6968" />
+<img width="959" height="498" alt="Screenshot 2025-12-06 173134" src="https://github.com/user-attachments/assets/4dcc79ce-ff32-4f62-9b23-84fc4ff4f742" />
+<img width="958" height="533" alt="Login Page" src="https://github.com/user-attachments/assets/ad82174b-e99c-4f70-853e-a7d98568c6a1" />
+<img width="951" height="532" alt="Home Page" src="https://github.com/user-attachments/assets/941e6a5e-b1b0-44f2-9ca4-62981b483a8c" />
+<img width="553" height="536" alt="3d cartoon" src="https://github.com/user-attachments/assets/2653f0a4-b25b-4ee3-a0c9-60c2ca8ecf5c" />
+<img width="948" height="533" alt="History page" src="https://github.com/user-attachments/assets/ad2e652e-48e9-49ce-be5f-4625522671a0" />
+<img width="566" height="515" alt="Comic" src="https://github.com/user-attachments/assets/2bad53df-be5e-4aa6-9cec-9e954bae1217" />
+<img width="575" height="511" alt="Anime style" src="https://github.com/user-attachments/assets/40d6e143-6abc-42ca-b840-a402ae180f10" />
+<img width="580" height="514" alt="Oil painting" src="https://github.com/user-attachments/assets/0c102ecf-0a21-4538-93ba-d87d1628e37e" />
+<img width="575" height="534" alt="Oil painting " src="https://github.com/user-attachments/assets/ad5f3789-33e4-4c2f-bc75-e2f5f6ce383e" />
+
+
+STACK USED👇
+
 # AI Image Transformer - Full Stack Application
 
 A complete full-stack AI-powered image transformation web application with 6 artistic styles.
@@ -148,3 +163,4 @@ MIT License
 ## 👨‍💻 Author
 
 AI Image Transformer Team
+
