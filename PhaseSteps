@@ -1,0 +1,64 @@
+Phase 1: Project Initialization & Setup
+Goal: Create the folder structure and install core dependencies.
+Steps:
+Initialize Git Repository: Create a root folder AI-Image-Transformer.
+Setup Backend:
+Create a server folder.
+Initialize with npm init -y.
+Install dependencies: express, mongoose, cors, dotenv, jsonwebtoken, bcryptjs, multer.
+Crucial Step: Install sharp for image processing (replacing the complex Python/OpenCV setup).
+Setup Frontend:
+Create a client folder using Vite: npm create vite@latest client -- --template react.
+Install depenencies: axios, react-router-dom, framer-motion, tailwindcss
+Phase 2: Backend Development (The Core)
+Goal: Build the API to handle users and images.
+Steps:
+Database Connection: Create server/config/db.js to connect to MongoDB.
+User Authentication:
+Create a User Model (models/User.js) schema for storing credentials.
+Build Auth Routes (routes/auth.js) for Signup and Login using JWT and Bcrypt.
+Image Transformation Logic:
+Create transforms/nodeTransforms.js. Implement the 6 styles (Pencil, Oil, Cartoon, etc.) using the sharp library image manipulation functions (e.g., grayscale(), blur(), modulate()).
+API Routes:
+Create routes/image.js to handle image uploads via multer and trigger the transformation logic.
+Create routes/history.js to fetch past transformations for the specific user.
+Phase 3: Frontend Development (The UI)
+Goal: Create a responsive, "Glassmorphism" interface.
+Steps:
+Routing & Auth Context:
+Set up react-router-dom in App.jsx.
+Create hooks/useAuth.js to manage user login state globally.
+Authentication Pages:
+Build LoginPage.jsx and SignUpPage.jsx with form validation.
+Dashboard (Main Feature):
+Create Dashboard.jsx. Implement a drag-and-drop file uploader and a style selector dropdown.
+Use axios to send the file to your backend API.
+History View:
+Build HistoryPage.jsx to display a grid of images fetched from the database.
+Phase 4: Styling & Polish
+Goal: Apply the specific aesthetic mentioned in your README.
+Steps:
+Tailwind Configuration: Update tailwind.config.js to include custom neon colors and fonts.
+Glassmorphism Components:
+Create GlassCard.jsx using semi-transparent backgrounds and blur effects (backdrop-filter: blur).
+Create NeonButton.jsx for the glowing call-to-action buttons.
+Animations: Use framer-motion to add entrance animations to the landing page 3D elements.
+Phase 5: Verification & Deployment
+Goal: Ensure stability (solving the 503 errors).
+
+Steps:
+
+Test Transformations: Verify all 6 styles (Pencil, Oil, 2D/3D Cartoon, Comic, Anime) generate output in under 1 second.
+
+Verify History: Ensure transformations persist in MongoDB after refreshing the page.
+
+Deployment Check:
+
+Ensure server/.env contains MONGODB_URI and JWT_SECRET.
+
+Run npm run dev in both client and server folders concurrently.
+
+3. Key Technical Pivot
+Original Plan: The project initially used Python scripts (pencil.py, anime.py, etc.) spawned as child processes. This caused "503 Service Unavailable" errors due to missing Python environments on some machines.
+
+Final Solution: The project was migrated to Node.js Native Transforms using the sharp library. This removed the Python dependency, increased speed, and fixed the crash issues. Ensure you implement this version for the "Complete" solution.
